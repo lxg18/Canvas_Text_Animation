@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Canvas Text Animation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+        }
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+  <canvas id="myCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('myCanvas');
+    const ctx = canvas.getContext('2d');
+    // Устанавливаем размер canvas на весь экран
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let lastTime = 0;
+    const animationSpeed = 30; // мс: чем больше число, тем медленнее анимация
+
+    // Alt + 0160 - неразрывный пробел
+    let brain = [
+      "                       ##+##+------.--+####                  ",
+      "               ###+-....    ....        .+..-+#              ",
+      "           ###-           .--        ..  ..   .-##           ",
+      "        ##-...    .--.    .+.      .#-   ..     ..+#         ",
+      "      ##-.  ..  ..##.  ..-#-       .-.   -.     .-..#        ",
+      "    #+.   .-.     ..   --         .#-    ..     .-.  +#      ",
+      "  #+.     .#.  .       ..         .+.   .#-           -#     ",
+      " #-          ..#.      ..  .-.   .-#.  .#.            -###   ",
+      "#-            .#.         .+#-.+#+..    .       .-.     .#   ",
+      "#.      .+-.  .#+.      -#.....-.          -+++..---##-..-## ",
+      "#. .++         .++..  .-.             -#-..... .#+-.  -+. +# ",
+      "#.            ..-##+.         ..                  +#.      -#",
+      "#-.        ..  .+.           ..-.   ..      ..    .#. ++.  .#",
+      " ##.         .+-       ...          .--.-...+.  ..#+. .#-. .#",
+      "   #-.    .. ..       .##.          ...       .-...   ..##.-#",
+      "      ##+++-.#-        .-                    .+---+---++#### ",
+      "             #.         .                              -#    ",
+      "             #.         .                               .#   ",
+      "              #+-..       .-+##-.   .##+--++.--.       .##   ",
+      "                  ###+-+##     ####.                  -#     ",
+      "                                   #+....           .##      ",
+      "                                    ###+--... . .-+##        ",
+      "                                      #+. -#####             ",
+      "                                       #- .#                 ",
+      "                                        #. +#                ",
+      "                                         #--#                "
+    ];
+
+    let animatedSin = [
+      "%@%%%%@%                   ", 
+      "%      @@@               %@",
+      "         @%%%          %%  ",
+      "           %%%%      %%    ",
+      "             %%@%%%@%      "
+    ];
+    let animatedSin_backup = [
+      "  @@@@@@@@                   %@%%%%@%               ", 
+      "@%%      @@@               %@       @@%             ",
+      "%          @%%%          %%           %%%         %%",
+      "             %%%%      %%               %%%      %% ",
+      "               %%@%%%@%                   @@@@@@@   "
+    ];
+
+    let display = { 
+      arr: [""],
+      wallChar: '-',
+      currentRow: 1,
+      currentCol: 1,
+      maxRows: 27,
+      maxCols: 32 
+    };
+    for (let i = 0; i < display.maxRows; i++) {
+      if (i == 0 || i == display.maxRows - 1) display.arr[i] = display.wallChar.repeat(display.maxCols); // первая и последняя строка
+      else display.arr[i] = display.wallChar + ' '.repeat(display.maxCols - 2) + display.wallChar; // остальные строки
+    }
+    //display.maxCols = display.arr[0].length - 1;
+    //display.maxRows = display.arr.length - 1;
+
+
+    function filldisplayWithRandomBits(_display) {
+      if (_display.currentRow >= _display.maxRows - 1 || _display.currentCol >= _display.maxCols - 1) {
+        // Сбрасываем все внутренние строки на исходное состояние с неразрывными пробелами
+        for (let i = 1; i < _display.maxRows - 1; i++) {
+          _display.arr[i] = display.wallChar + ' '.repeat(_display.maxCols - 2) + display.wallChar
+        }
+
+        // Возвращаем позицию в начало
+        _display.currentRow = 1;
+        _display.currentCol = 1;
+      }
+      
+
+      if (_display.arr[_display.currentRow][_display.currentCol] === ' ') {
+        const bit = Math.random() < 0.5 ? '0' : '1';
+        const row = _display.arr[_display.currentRow];
+        _display.arr[_display.currentRow] = row.slice(0, _display.currentCol) + bit + row.slice(_display.currentCol + 1);
+      }
+
+      _display.currentCol++;
+      if (_display.currentCol >= _display.maxCols - 1) {
+        _display.currentCol = 1;
+        _display.currentRow++;
+      }
+
+      return true;
+    }
+
+    function shiftStrings(arr) {
+      return arr.map(str => {
+        return str[str.length - 1] + str.slice(0, -1); // Берём последний символ и добавляем в начало остальные символы (кроме последнего)
+      });
+    }
+
+    let fSize = 12;
+    const divCoef = 0.5498046875; // charWidth / fSize (fSize / charWidth = 1.8188277087033748)
+    const fSizeCoef = 1.8188277087033748;
+    let charCount;
+    let charWidth;
+    let offset = {x: 0, y: 0}; // отступы от краёв при отрисовке
+    
+    function updateSizes() { // масштабирование
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      charCount = display.arr[0].length + brain[0].length + animatedSin[0].length + 4;
+      charWidth = canvas.width / charCount;
+      fSize = charWidth * fSizeCoef; 
+      offset.x = 2 * charWidth;
+      offset.y = 1 * fSize;
+    }
+    updateSizes();
+
+    function draw() {      
+      // Заливка canvas
+      ctx.fillStyle = '#222224';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      charWidth = ctx.measureText("_").width; // усточнение ширины символа
+      ctx.font = `${fSize}px Consolas, monospace`; // Устанавливаем шрифт Consolas
+      // синус
+      ctx.fillStyle = '#a08000';//'#ccf';
+      animatedSin.forEach((elem, index) => {
+        ctx.fillText(elem, offset.x + parseInt(brain[0].length) * charWidth, offset.y + parseInt(brain.length/2.2) * fSize + fSize * index);      
+      });
+      // мозг
+      ctx.fillStyle = '#ff5060';
+      brain.forEach((elem, index) => {      
+        ctx.fillText(elem, offset.x, offset.y + fSize + fSize * index);      
+      });
+      // экран
+      ctx.fillStyle = '#00a080';//'#cfc';
+      display.arr.forEach((elem, index) => {      
+        ctx.fillText(elem, offset.x + (brain[0].length + animatedSin[0].length) * charWidth, offset.y + parseInt(brain.length/2.2) * fSize - parseInt(display.arr.length/2) * fSize + 3 * fSize + fSize * index);      
+      });
+      
+      // Увеличиваем смещение для анимации синуса
+      animatedSin = shiftStrings(animatedSin);
+      filldisplayWithRandomBits(display);
+    }
+
+    // Запускаем анимацию
+    function animate(currentTime) {
+        // Проверяем, прошло ли достаточно времени
+        if (currentTime - lastTime >= animationSpeed) {
+            draw(); // функция отрисовки текста
+            lastTime = currentTime;
+        }
+        requestAnimationFrame(animate);
+    }
+    animate();
+
+    // Обработчик изменения размера окна
+    window.addEventListener('resize', () => {
+      updateSizes();
+    });
+  </script>
+</body>
+</html>
